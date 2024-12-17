@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { ModifyServer, GetServers, RemoveServer } from "../wailsjs/go/main/App";
+import { ModifyServer, GetServers, RemoveServer, ModifyCommand, GetCommands, RemoveCommand } from "../wailsjs/go/main/App";
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message } from "antd";
 import { UnorderedListOutlined, PlusOutlined } from "@ant-design/icons";
 
@@ -9,7 +9,9 @@ import { UnorderedListOutlined, PlusOutlined } from "@ant-design/icons";
 function App() {
     const [showAddServer, setShowAddServer] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
+    
     const [servers, setServers] = useState([]);
+    const [commands, setCommands] = useState([]);
     const [form] = Form.useForm();
     const columns = [
         {
@@ -41,14 +43,22 @@ function App() {
         },
 
     ];
+    useEffect(() => {
+        getServers();
+        getCommands();
+    }, []);
+
+    async function getCommands() {
+        let result = await GetCommands();
+        console.log(result)
+        setCommands(result)
+    }
     async function getServers() {
         let result = await GetServers();
         setServers(result)
         console.log(result)
     }
-    useEffect(() => {
-        getServers();
-    }, []);
+   
 
     async function showServerListModal() {
         await getServers()
@@ -83,10 +93,11 @@ function App() {
         form.validateFields().then((values) => {
             let data = form.getFieldsValue(true)
             console.log(data)
-            ModifyServer(data)
-            getServers().then(() => {
-                message.info("添加成功")
-                setShowAddServer(false)
+            ModifyServer(data).then(() => {
+                getServers().then(() => {
+                    message.info("添加成功")
+                    setShowAddServer(false)
+                })
             })
         }, (errorInfo) => {
             console.log("Failed:", errorInfo);
@@ -122,10 +133,10 @@ function App() {
                                 optionType="button"
                                 buttonStyle="solid"
                             >
-                                {servers.map((option) => {return <Radio.Button key={option.name} value={option}>{option.name}</Radio.Button>})}
+                                {servers.map((option) => { return <Radio.Button key={option.name} value={option}>{option.name}</Radio.Button> })}
                             </Radio.Group>
                         </Flex>
-                        <h3>命令列表</h3>
+                        <h3>命令列表 <Button type="primary" size="small" shape="circle" icon={<PlusOutlined />}></Button></h3>
                     </Card>
                 </Col>
             </Row>
