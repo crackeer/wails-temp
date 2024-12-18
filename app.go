@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
@@ -54,7 +55,9 @@ func (a *App) Greet(name string) string {
 }
 
 type Server struct {
+	ID       string `json:"id"`
 	Name     string `json:"name"`
+	IP       string `json:"ip"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Port     string `json:"port"`
@@ -73,13 +76,16 @@ func (a *App) GetServers() []Server {
 	servers := []Server{}
 	for k, v := range data {
 		tmpData := &Server{}
-		json.Unmarshal([]byte(v), tmpData)
-		servers = append(servers, Server{
-			Name:     k,
-			User:     tmpData.User,
-			Password: tmpData.Password,
-			Port:     tmpData.Port,
-		})
+		if err := json.Unmarshal([]byte(v), tmpData); err == nil {
+			servers = append(servers, Server{
+				ID:       k,
+				Name:     tmpData.Name,
+				IP:       tmpData.IP,
+				User:     tmpData.User,
+				Password: tmpData.Password,
+				Port:     tmpData.Port,
+			})
+		}
 	}
 	return servers
 }
@@ -87,24 +93,27 @@ func (a *App) GetServers() []Server {
 // ModifyServer ...
 //
 //	@param server
-func (a *App) ModifyServer(server Server) {
+func (a *App) AddServer(server Server) {
+	id := fmt.Sprintf("%d", time.Now().Unix())
+	server.ID = id
 	data, _ := json.Marshal(server)
 	a.boltDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("server"))
-		err := b.Put([]byte(server.Name), data)
+		err := b.Put([]byte(id), data)
 		return err
 	})
 }
 
-func (a *App) RemoveServer(name string) {
+func (a *App) RemoveServer(id string) {
 	a.boltDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("server"))
-		err := b.Delete([]byte(name))
+		err := b.Delete([]byte(id))
 		return err
 	})
 }
 
 type Command struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	Data string `json:"data"`
 }
@@ -121,23 +130,38 @@ func (a *App) GetCommands() []Command {
 	})
 	commands := []Command{}
 	for k, v := range data {
-		commands = append(commands, Command{
-			Name: k,
-			Data: v,
-		})
+		tmpData := &Command{}
+		if err := json.Unmarshal([]byte(v), tmpData); err == nil {
+			commands = append(commands, Command{
+				ID:   k,
+				Name: tmpData.Name,
+				Data: tmpData.Data,
+			})
+		}
 	}
 	return commands
 }
 
-func (a *App) RemoveCommand(name string) {
+func (a *App) RemoveCommand(id string) {
 	a.boltDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("command"))
-		err := b.Delete([]byte(name))
+		err := b.Delete([]byte(id))
 		return err
 	})
 }
 
-func (a *App) ModifyCommand(command Command) {
+func (a *App) AddCommand(command Command) {
+	id := fmt.Sprintf("%d", time.Now().Unix())
+	command.ID = id
+	data, _ := json.Marshal(command)
+	a.boltDB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("command"))
+		err := b.Put([]byte(command.ID), data)
+		return err
+	})
+}
+
+func (a *App) ExecCommand(command Command) {
 	a.boltDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("command"))
 		err := b.Put([]byte(command.Name), []byte(command.Data))

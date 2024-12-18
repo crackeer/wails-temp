@@ -1,22 +1,18 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import { ModifyServer, GetServers, RemoveServer, ModifyCommand, GetCommands, RemoveCommand } from "../wailsjs/go/main/App";
-import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message } from "antd";
+import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, Divider, List, Splitter } from "antd";
 import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined } from "@ant-design/icons";
+import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 
-const commands = [
-    {
-        name: "查看当前目录下的文件",
-        command: "docker save server:port/name:tag > name.tar\ndocker load < name.tar",
-    },
-]
 
 function App() {
+    var term = null
     const [showAddServer, setShowAddServer] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
     const [currentServer, setCurrentServer] = useState({});
-   // const [showAddCommand, setShowAddCommand] = useState(false);
-   const [showAddCommand, setShowAddCommand] = useState(false);
+    const [showAddCommand, setShowAddCommand] = useState(false);
 
     const [servers, setServers] = useState([]);
     const [commands, setCommands] = useState([]);
@@ -55,6 +51,12 @@ function App() {
     useEffect(() => {
         getServers();
         getCommands();
+        term = new Terminal()
+        term.open(document.getElementById('terminal'));
+        for (let i = 0; i < 10; i++) {
+            term.writeln("hello")
+        }
+        term.writeln("hello")
     }, []);
 
     async function getCommands() {
@@ -66,11 +68,11 @@ function App() {
         let result = await GetServers();
         setServers(result)
         if (result.length > 0 && Object.keys(currentServer).length < 1) {
-            setCurrentServer(result[0])
+            setCurrentServer(result[0].name)
         }
         console.log(result)
     }
-   
+
 
     async function showServerListModal() {
         await getServers()
@@ -136,6 +138,27 @@ function App() {
         console.log(record)
     }
 
+    function deleteCommand(record) {
+        Modal.confirm({
+            title: '删除确认',
+            content: '确定删除command：' + record.name + '吗？',
+            okText: '确定',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk() {
+                RemoveCommand(record.name).then(() => {
+                    message.info("删除成功")
+                    getCommands()
+                })
+            },
+            onCancel() {
+                console.log('Cancel');
+            },
+        });
+    }
+
+
+
     return (
         <div id="App">
             <div className="setting">
@@ -154,39 +177,55 @@ function App() {
                     ></Button>
                 </div>
             </div>
-            <Row style={{ paddingTop: "10px" }}>
-                <Col span={22} offset={1}>
-                    <Card>
-                        <h2>服务器列表</h2>
-                        <Flex vertical gap="middle">
-                            <Radio.Group
-                                block
-                                optionType="button"
-                                buttonStyle="solid"
-                                value={currentServer}
-                            >
-                                {servers.map((option) => { return <Radio.Button key={option.name} value={option}>{option.name}</Radio.Button> })}
-                            </Radio.Group>
-                        </Flex>
-                        <h2>命令列表 <Button type="primary" size="small" shape="circle" icon={<PlusOutlined />} onClick={() => setShowAddCommand(true)}></Button></h2>
-                        <Row gutter={10}>
-                            {
-                                commands.map((option) => {
-                                    return <Col span={8}>
-                                        <Card type="inner" size="small" title={option.name} hoverable={true} actions={[<Button type="link"  icon={<ArrowUpOutlined />} onClick={execCommand.bind(this, option)}>执行</Button>]} >
-                                        {
-                                            option.data.split('\n').map((item) => {
-                                                return <div>{item}</div>
-                                            })
-                                        }
-                                        </Card>
-                                    </Col>
-                                })
-                            }
-                        </Row>
-                    </Card>
-                </Col>
-            </Row>
+            <Splitter layout="vertical" style={{ height: '100%' }}>
+                <Splitter.Panel>
+                    <Row style={{ paddingTop: "10px" }}>
+                        <Col span={22} offset={1}>
+                            <Card>
+                                <h2>服务器列表</h2>
+                                <Flex vertical gap="middle">
+                                    <Radio.Group
+                                        block
+                                        optionType="button"
+                                        buttonStyle="solid"
+                                        value={currentServer}
+                                        onChange={(e) => setCurrentServer(e.target.value)}
+                                    >
+                                        {servers.map((option) => { return <Radio.Button key={option.name} value={option.name}>{option.name}</Radio.Button> })}
+                                    </Radio.Group>
+                                </Flex>
+                                <h2>命令列表 <Button type="primary" size="small" shape="circle" icon={<PlusOutlined />} onClick={() => setShowAddCommand(true)}></Button></h2>
+                                <Row gutter={10}>
+                                    {
+                                        commands.map((option) => {
+                                            return <Col span={12}>
+                                                <Card type="inner" size="small" title={option.name}>
+                                                    <List
+                                                        dataSource={option.data.split('\n')}
+                                                        size="small"
+                                                        renderItem={(item) => (
+                                                            <List.Item>
+                                                                {item}
+                                                            </List.Item>
+                                                        )}
+                                                    />
+                                                    <Space style={{ marginTop: '15px' }} split={<Divider type="vertical" />} size={"small"}>
+                                                        <Button type="link" onClick={deleteCommand.bind(this, option)} size="small">删除</Button>
+                                                        <Button type="link" onClick={execCommand.bind(this, option)} size="small">执行</Button>
+                                                    </Space>
+                                                </Card>
+                                            </Col>
+                                        })
+                                    }
+                                </Row>
+                            </Card>
+                        </Col>
+                    </Row>
+                </Splitter.Panel>
+                <Splitter.Panel min={'10%'} max={'30%'} defaultSize={'20%'}>
+                    <div id="terminal" style={{ height: '100%' }}></div>
+                </Splitter.Panel>
+            </Splitter>
             <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'60%'}>
                 <Table
                     columns={columns}
@@ -231,21 +270,23 @@ function App() {
                 open={showAddCommand}
                 onCancel={() => setShowAddCommand(false)}
                 onOk={doAddCommand}
+                width={'60%'}
             >
                 <Form
                     name="basic1"
                     form={form1}
                     labelCol={{ span: 5 }}
-                    wrapperCol={{ span: 16 }}
-                    initialValues={{ name: 'command-name', data: '' }}
+                    wrapperCol={{ span: 19 }}
+                    initialValues={{ name: '名字1', data: '' }}
                     style={{ marginTop: '30px' }}
                     autoComplete="off"
+
                 >
-                    <Form.Item label="name" name="name" rules={[{ required: true, message: "Please input name!" }]}>
+                    <Form.Item label="名字" name="name" rules={[{ required: true, message: "Please input name!" }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item label="data" name="data" rules={[{ required: true, message: "Please input your port!" }]}>
-                        <Input.TextArea rows={10}/>
+                    <Form.Item label="命令行" name="data" rules={[{ required: true, message: "Please input your port!" }]}>
+                        <Input.TextArea rows={10} />
                     </Form.Item>
                 </Form>
             </Modal>
