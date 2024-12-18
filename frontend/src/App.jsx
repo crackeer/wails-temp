@@ -4,11 +4,17 @@ import { ModifyServer, GetServers, RemoveServer } from "../wailsjs/go/main/App";
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message } from "antd";
 import { UnorderedListOutlined, PlusOutlined } from "@ant-design/icons";
 
-
+const commands = [
+    {
+        name: "查看当前目录下的文件",
+        command: "docker save server:port/name:tag > name.tar\ndocker load < name.tar",
+    },
+]
 
 function App() {
     const [showAddServer, setShowAddServer] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
+    const [currentServer, setCurrentServer] = useState({});
     const [servers, setServers] = useState([]);
     const [form] = Form.useForm();
     const columns = [
@@ -44,6 +50,9 @@ function App() {
     async function getServers() {
         let result = await GetServers();
         setServers(result)
+        if (result.length > 0 && Object.keys(currentServer).length < 1) {
+            setCurrentServer(result[0])
+        }
         console.log(result)
     }
     useEffect(() => {
@@ -90,8 +99,7 @@ function App() {
             })
         }, (errorInfo) => {
             console.log("Failed:", errorInfo);
-        }
-        );
+        });
     }
     return (
         <div id="App">
@@ -118,9 +126,9 @@ function App() {
                         <Flex vertical gap="middle">
                             <Radio.Group
                                 block
-                                defaultValue="Apple"
                                 optionType="button"
                                 buttonStyle="solid"
+                                value={currentServer}
                             >
                                 {servers.map((option) => {return <Radio.Button key={option.name} value={option}>{option.name}</Radio.Button>})}
                             </Radio.Group>
