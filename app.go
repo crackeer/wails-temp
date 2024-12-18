@@ -103,3 +103,44 @@ func (a *App) RemoveServer(name string) {
 		return err
 	})
 }
+
+type Command struct {
+	Name string `json:"name"`
+	Data string `json:"data"`
+}
+
+func (a *App) GetCommands() []Command {
+	data := map[string]string{}
+	a.boltDB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("command"))
+		b.ForEach(func(k, v []byte) error {
+			data[string(k)] = string(v)
+			return nil
+		})
+		return nil
+	})
+	commands := []Command{}
+	for k, v := range data {
+		commands = append(commands, Command{
+			Name: k,
+			Data: v,
+		})
+	}
+	return commands
+}
+
+func (a *App) RemoveCommand(name string) {
+	a.boltDB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("command"))
+		err := b.Delete([]byte(name))
+		return err
+	})
+}
+
+func (a *App) ModifyCommand(command Command) {
+	a.boltDB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("command"))
+		err := b.Put([]byte(command.Name), []byte(command.Data))
+		return err
+	})
+}
