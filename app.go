@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/boltdb/bolt"
+	"golang.org/x/crypto/ssh"
 )
 
 // App struct
@@ -161,10 +163,51 @@ func (a *App) AddCommand(command Command) {
 	})
 }
 
-func (a *App) ExecCommand(command Command) {
-	a.boltDB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("command"))
-		err := b.Put([]byte(command.Name), []byte(command.Data))
-		return err
+func (a *App) ExecCommand(serverID, commandID string) error {
+	server := &Server{}
+	command := &Command{}
+	err := a.boltDB.View(func(tx *bolt.Tx) error {
+		bytes := tx.Bucket([]byte("server")).Get([]byte(serverID))
+		if err := json.Unmarshal(bytes, server); err != nil {
+			return fmt.Errorf("json unmarshal server error:%v", err)
+		}
+		bytes2 := tx.Bucket([]byte("command")).Get([]byte(commandID))
+		if err := json.Unmarshal(bytes2, command); err != nil {
+			return fmt.Errorf("json unmarshal command error:%v", err)
+		}
+		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+	//
+	config := &ssh.ClientConfig{
+		User:            server.User,
+		Auth:            []ssh.AuthMethod{ssh.Password(server.Password)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	sshClient, err := ssh.Dial("tcp", server.IP+":"+server.Port, config)
+	if err != nil {
+		return fmt.Errorf("dial error: %v", err)
+	}
+
+	commands := strings.Split(command.Data, "\n")
+	for _, item := range commands {
+		fmt.Println("command: ", item)
+		session, err := sshClient.NewSession()
+		if err != nil {
+			return fmt.Errorf("new session error: %v", err)
+		}
+		//session.RequestPty("bash", 80, 40, ssh.TerminalModes{})
+		session.Stdout = NewExecCommandWriter(a.ctx, "stdout")
+		session.Stderr = NewExecCommandWriter(a.ctx, "stderr")
+		if err := session.Run(item); err != nil {
+			session.Close()
+			return fmt.Errorf("run command error: %v, command = %s", err, item)
+		}
+		session.Close()
+	}
+
+	return nil
 }

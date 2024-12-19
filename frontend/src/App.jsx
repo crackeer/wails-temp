@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { ModifyServer, GetServers, RemoveServer, ModifyCommand, GetCommands, RemoveCommand } from "../wailsjs/go/main/App";
+import { AddServer, GetServers, RemoveServer, AddCommand, GetCommands, RemoveCommand, ExecCommand } from "../wailsjs/go/main/App";
+import { EventsOn } from "../wailsjs/runtime/runtime";
+
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, Divider, List, Splitter } from "antd";
 import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined } from "@ant-design/icons";
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-
+import { FitAddon } from '@xterm/addon-fit';
 
 function App() {
-    var term = null
     const [showAddServer, setShowAddServer] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
     const [currentServer, setCurrentServer] = useState({});
@@ -18,12 +19,18 @@ function App() {
     const [commands, setCommands] = useState([]);
     const [form] = Form.useForm();
     const [form1] = Form.useForm();
+    const fitAddon = new FitAddon();
     const columns = [
+        {
+            title: '名字',
+            dataIndex: 'name',
+            key: 'name',
+        },
         {
             title: 'ServerIP',
             dataIndex: 'name',
             key: 'name',
-            render: (_, item) => `${item.name}:${item.port}`,
+            render: (_, item) => `${item.ip}:${item.port}`,
         },
         {
             title: '用户',
@@ -48,16 +55,26 @@ function App() {
         },
 
     ];
+    var term = null;
     useEffect(() => {
         getServers();
         getCommands();
+        console.log("useEffect")
         term = new Terminal()
-        term.open(document.getElementById('terminal'));
-        for (let i = 0; i < 10; i++) {
-            term.writeln("hello")
-        }
-        term.writeln("hello")
+        // term.loadAddon(fitAddon);
+        //term.open(document.getElementById('terminal'));
+        //term.writeln("hello")
+        console.log(term)
+        EventsOn('command-exec-output', termWrite)
+
     }, []);
+
+    function termWrite(data) {
+        let parts = data.split('\n')
+        for (var i in parts) {
+            term.writeln(parts[i])
+        }
+    }
 
     async function getCommands() {
         let result = await GetCommands();
@@ -67,8 +84,8 @@ function App() {
     async function getServers() {
         let result = await GetServers();
         setServers(result)
-        if (result.length > 0 && Object.keys(currentServer).length < 1) {
-            setCurrentServer(result[0].name)
+        if (result.length > 0 && currentServer.length < 1) {
+            setCurrentServer(result[0].id)
         }
         console.log(result)
     }
@@ -87,7 +104,7 @@ function App() {
             okType: 'danger',
             cancelText: '取消',
             onOk() {
-                RemoveServer(record.name).then(() => {
+                RemoveServer(record.id).then(() => {
                     message.info("删除成功")
                     getServers()
                 })
@@ -107,7 +124,7 @@ function App() {
         form.validateFields().then((values) => {
             let data = form.getFieldsValue(true)
             console.log(data)
-            ModifyServer(data).then(() => {
+            AddServer(data).then(() => {
                 getServers().then(() => {
                     message.info("添加成功")
                     setShowAddServer(false)
@@ -122,7 +139,7 @@ function App() {
         form1.validateFields().then((values) => {
             let data = form1.getFieldsValue(true)
             console.log(data)
-            ModifyCommand(data).then(() => {
+            AddCommand(data).then(() => {
                 getCommands().then(() => {
                     message.info("添加成功")
                     setShowAddCommand(false)
@@ -135,7 +152,23 @@ function App() {
     }
 
     function execCommand(record) {
-        console.log(record)
+        Modal.confirm({
+            title: '确认',
+            content: '确认执行该command吗？',
+            okText: '确定',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk() {
+                ExecCommand(currentServer, record.id).then((result) => {
+                    console.log("exec finished")
+                }).catch(e => {
+                    console.log(e)
+                })
+            },
+            onCancel() {
+                console.log('Cancel');
+            },
+        });
     }
 
     function deleteCommand(record) {
@@ -146,7 +179,7 @@ function App() {
             okType: 'danger',
             cancelText: '取消',
             onOk() {
-                RemoveCommand(record.name).then(() => {
+                RemoveCommand(record.id).then(() => {
                     message.info("删除成功")
                     getCommands()
                 })
@@ -177,56 +210,50 @@ function App() {
                     ></Button>
                 </div>
             </div>
-            <Splitter layout="vertical" style={{ height: '100%' }}>
-                <Splitter.Panel>
-                    <Row style={{ paddingTop: "10px" }}>
-                        <Col span={22} offset={1}>
-                            <Card>
-                                <h2>服务器列表</h2>
-                                <Flex vertical gap="middle">
-                                    <Radio.Group
-                                        block
-                                        optionType="button"
-                                        buttonStyle="solid"
-                                        value={currentServer}
-                                        onChange={(e) => setCurrentServer(e.target.value)}
-                                    >
-                                        {servers.map((option) => { return <Radio.Button key={option.name} value={option.name}>{option.name}</Radio.Button> })}
-                                    </Radio.Group>
-                                </Flex>
-                                <h2>命令列表 <Button type="primary" size="small" shape="circle" icon={<PlusOutlined />} onClick={() => setShowAddCommand(true)}></Button></h2>
-                                <Row gutter={10}>
-                                    {
-                                        commands.map((option) => {
-                                            return <Col span={12}>
-                                                <Card type="inner" size="small" title={option.name}>
-                                                    <List
-                                                        dataSource={option.data.split('\n')}
-                                                        size="small"
-                                                        renderItem={(item) => (
-                                                            <List.Item>
-                                                                {item}
-                                                            </List.Item>
-                                                        )}
-                                                    />
-                                                    <Space style={{ marginTop: '15px' }} split={<Divider type="vertical" />} size={"small"}>
-                                                        <Button type="link" onClick={deleteCommand.bind(this, option)} size="small">删除</Button>
-                                                        <Button type="link" onClick={execCommand.bind(this, option)} size="small">执行</Button>
-                                                    </Space>
-                                                </Card>
-                                            </Col>
-                                        })
-                                    }
-                                </Row>
-                            </Card>
-                        </Col>
-                    </Row>
-                </Splitter.Panel>
-                <Splitter.Panel min={'10%'} max={'30%'} defaultSize={'20%'}>
-                    <div id="terminal" style={{ height: '100%' }}></div>
-                </Splitter.Panel>
-            </Splitter>
-            <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'60%'}>
+
+            <Row style={{ paddingTop: "10px" }}>
+                <Col span={22} offset={1}>
+                    <Card>
+                        <Flex vertical gap="middle">
+                            <Radio.Group
+                                block
+                                optionType="button"
+                                buttonStyle="solid"
+                                value={currentServer}
+                                onChange={(e) => setCurrentServer(e.target.value)}
+                            >
+                                {servers.map((option) => { return <Radio.Button key={option.id} value={option.id}>{option.name + '-' + option.ip}</Radio.Button> })}
+                            </Radio.Group>
+                        </Flex>
+                        <h2>命令列表 <Button type="primary" size="small" shape="circle" icon={<PlusOutlined />} onClick={() => setShowAddCommand(true)}></Button></h2>
+                        <Row gutter={10}>
+                            {
+                                commands.map((option) => {
+                                    return <Col span={12}>
+                                        <Card type="inner" size="small" title={option.name}>
+                                            <List
+                                                dataSource={option.data.split('\n')}
+                                                size="small"
+                                                renderItem={(item) => (
+                                                    <List.Item>
+                                                        {item}
+                                                    </List.Item>
+                                                )}
+                                            />
+                                            <Space style={{ marginTop: '15px' }} split={<Divider type="vertical" />} size={"small"}>
+                                                <Button type="link" onClick={deleteCommand.bind(this, option)} size="small">删除</Button>
+                                                <Button type="link" onClick={execCommand.bind(this, option)} size="small">执行</Button>
+                                            </Space>
+                                        </Card>
+                                    </Col>
+                                })
+                            }
+                        </Row>
+
+                    </Card>
+                </Col>
+            </Row>
+            <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'70%'}>
                 <Table
                     columns={columns}
                     rowKey={(record) => record.ip}
@@ -246,11 +273,14 @@ function App() {
                     form={form}
                     labelCol={{ span: 5 }}
                     wrapperCol={{ span: 16 }}
-                    initialValues={{ name: '', port: '22', user: 'root', password: '1234567' }}
+                    initialValues={{ name: '', port: '22', user: 'root', password: '1234567', ip: '' }}
                     style={{ marginTop: '30px' }}
                     autoComplete="off"
                 >
-                    <Form.Item label="ServerIP" name="name" rules={[{ required: true, message: "Please input your name!" }]}>
+                    <Form.Item label="名字" name="name" rules={[{ required: true, message: "Please input your name!" }]}>
+                        <Input />
+                    </Form.Item>
+                    <Form.Item label="ServerIP" name="ip" rules={[{ required: true, message: "Please input your server_ip!" }]}>
                         <Input />
                     </Form.Item>
                     <Form.Item label="Port" name="port" rules={[{ required: true, message: "Please input your port!" }]}>

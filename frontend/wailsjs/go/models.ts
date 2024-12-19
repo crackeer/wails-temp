@@ -1,6 +1,7 @@
 export namespace main {
 	
 	export class Command {
+	    id: string;
 	    name: string;
 	    data: string;
 	
@@ -10,12 +11,15 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.data = source["data"];
 	    }
 	}
 	export class Server {
+	    id: string;
 	    name: string;
+	    ip: string;
 	    user: string;
 	    password: string;
 	    port: string;
@@ -26,7 +30,9 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.ip = source["ip"];
 	        this.user = source["user"];
 	        this.password = source["password"];
 	        this.port = source["port"];
