@@ -60,9 +60,23 @@ function App() {
         getServers();
         getCommands();
         console.log("useEffect")
-        term = new Terminal()
-        // term.loadAddon(fitAddon);
-        //term.open(document.getElementById('terminal'));
+        term = new Terminal({
+            rendererType: "canvas", //渲染类型
+            rows: 20, //行数
+            convertEol: true, //启用时，光标将设置为下一行的开头
+            // scrollback: 50, //终端中的回滚量
+            disableStdin: false, //是否应禁用输入
+            // cursorStyle: "underline", //光标样式
+            cursorBlink: true, //光标闪烁
+            theme: {
+                foreground: "#ECECEC", //字体
+                background: "#000000", //背景色
+                cursor: "help", //设置光标
+                lineHeight: 20
+            }
+        })
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
         //term.writeln("hello")
         console.log(term)
         EventsOn('command-exec-output', termWrite)
@@ -194,6 +208,7 @@ function App() {
 
     return (
         <div id="App">
+            <div id="terminal"></div>
             <div className="setting">
                 <Button
                     icon={<UnorderedListOutlined />}
