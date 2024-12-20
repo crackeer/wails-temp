@@ -9,11 +9,15 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 
+var term = null;
+
 function App() {
     const [showAddServer, setShowAddServer] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
     const [currentServer, setCurrentServer] = useState({});
     const [showAddCommand, setShowAddCommand] = useState(false);
+    const [showPanel, setShowPanel] = useState(false)
+    const [readyCommand, setReadyCommand] = useState('')
 
     const [servers, setServers] = useState([]);
     const [commands, setCommands] = useState([]);
@@ -55,33 +59,26 @@ function App() {
         },
 
     ];
-    var term = null;
+
     useEffect(() => {
         getServers();
         getCommands();
-        console.log("useEffect")
-        term = new Terminal({
-            rendererType: "canvas", //渲染类型
+        EventsOn('command-exec-output', termWrite)
+    }, []);
+
+    function newTerm(elementID) {
+        let tmpTerm = new Terminal({
             rows: 20, //行数
             convertEol: true, //启用时，光标将设置为下一行的开头
             // scrollback: 50, //终端中的回滚量
-            disableStdin: false, //是否应禁用输入
+            disableStdin: true, //是否应禁用输入
             // cursorStyle: "underline", //光标样式
             cursorBlink: true, //光标闪烁
-            theme: {
-                foreground: "#ECECEC", //字体
-                background: "#000000", //背景色
-                cursor: "help", //设置光标
-                lineHeight: 20
-            }
         })
-        term.loadAddon(fitAddon);
-        term.open(document.getElementById('terminal'));
-        //term.writeln("hello")
-        console.log(term)
-        EventsOn('command-exec-output', termWrite)
-
-    }, []);
+        //term.loadAddon(fitAddon);
+        tmpTerm.open(document.getElementById(elementID))
+        return tmpTerm
+    }
 
     function termWrite(data) {
         let parts = data.split('\n')
@@ -165,24 +162,24 @@ function App() {
         );
     }
 
-    function execCommand(record) {
-        Modal.confirm({
-            title: '确认',
-            content: '确认执行该command吗？',
-            okText: '确定',
-            okType: 'danger',
-            cancelText: '取消',
-            onOk() {
-                ExecCommand(currentServer, record.id).then((result) => {
-                    console.log("exec finished")
-                }).catch(e => {
-                    console.log(e)
-                })
-            },
-            onCancel() {
-                console.log('Cancel');
-            },
-        });
+    var showExecCommand = (record) => {
+        setReadyCommand(record.data)
+        setShowPanel(true)
+        console.log("Term", term)
+        setTimeout(() => {
+            if (term == null) {
+                term = newTerm('terminal')
+                console.log("new Terminal")
+            }
+        }, 100)
+    }
+
+    function execCommand() {
+        ExecCommand(currentServer, readyCommand).then((result) => {
+            console.log("exec finished")
+        }).catch(e => {
+            console.log(e)
+        })
     }
 
     function deleteCommand(record) {
@@ -208,7 +205,6 @@ function App() {
 
     return (
         <div id="App">
-            <div id="terminal"></div>
             <div className="setting">
                 <Button
                     icon={<UnorderedListOutlined />}
@@ -257,7 +253,7 @@ function App() {
                                             />
                                             <Space style={{ marginTop: '15px' }} split={<Divider type="vertical" />} size={"small"}>
                                                 <Button type="link" onClick={deleteCommand.bind(this, option)} size="small">删除</Button>
-                                                <Button type="link" onClick={execCommand.bind(this, option)} size="small">执行</Button>
+                                                <Button type="link" onClick={showExecCommand.bind(this, option)} size="small">执行</Button>
                                             </Space>
                                         </Card>
                                     </Col>
@@ -335,8 +331,29 @@ function App() {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            <Modal
+                title="执行命令行"
+                open={showPanel}
+                onCancel={() => {
+                    setShowPanel(false)
+                }}
+                width={'60%'}
+            >
+                <Row gutter={10}>
+                    <Col span={20}>
+                        <Input.TextArea value={readyCommand} onChange={(e) => {
+                            setReadyCommand(e.target.value)
+                        }}></Input.TextArea>
+                    </Col>
+                    <Col span={4}>
+                        <Button type="link" onClick={execCommand} size="small">执行</Button>
+                    </Col>
+                </Row>
+
+                <div id="terminal" style={{ paddingTop: '10px' }}></div>
+            </Modal>
         </div>
     );
 }
-
 export default App;

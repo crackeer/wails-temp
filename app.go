@@ -163,17 +163,12 @@ func (a *App) AddCommand(command Command) {
 	})
 }
 
-func (a *App) ExecCommand(serverID, commandID string) error {
+func (a *App) ExecCommand(serverID, command string) error {
 	server := &Server{}
-	command := &Command{}
 	err := a.boltDB.View(func(tx *bolt.Tx) error {
 		bytes := tx.Bucket([]byte("server")).Get([]byte(serverID))
 		if err := json.Unmarshal(bytes, server); err != nil {
 			return fmt.Errorf("json unmarshal server error:%v", err)
-		}
-		bytes2 := tx.Bucket([]byte("command")).Get([]byte(commandID))
-		if err := json.Unmarshal(bytes2, command); err != nil {
-			return fmt.Errorf("json unmarshal command error:%v", err)
 		}
 		return nil
 	})
@@ -181,7 +176,7 @@ func (a *App) ExecCommand(serverID, commandID string) error {
 	if err != nil {
 		return err
 	}
-	//
+
 	config := &ssh.ClientConfig{
 		User:            server.User,
 		Auth:            []ssh.AuthMethod{ssh.Password(server.Password)},
@@ -192,7 +187,7 @@ func (a *App) ExecCommand(serverID, commandID string) error {
 		return fmt.Errorf("dial error: %v", err)
 	}
 
-	commands := strings.Split(command.Data, "\n")
+	commands := strings.Split(command, "\n")
 	for _, item := range commands {
 		fmt.Println("command: ", item)
 		session, err := sshClient.NewSession()
