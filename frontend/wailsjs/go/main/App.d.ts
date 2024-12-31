@@ -17,3 +17,5 @@ export function Greet(arg1:string):Promise<string>;
 export function RemoveCommand(arg1:string):Promise<void>;
 
 export function RemoveServer(arg1:string):Promise<void>;
+
+export function SimpleExecCommand(arg1:string,arg2:string):Promise<main.SimpleExecCmdResult>;

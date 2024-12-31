@@ -33,3 +33,7 @@ export function RemoveCommand(arg1) {
 export function RemoveServer(arg1) {
   return window['go']['main']['App']['RemoveServer'](arg1);
 }
+
+export function SimpleExecCommand(arg1, arg2) {
+  return window['go']['main']['App']['SimpleExecCommand'](arg1, arg2);
+}

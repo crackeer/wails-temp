@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { AddServer, GetServers, RemoveServer, AddCommand, GetCommands, RemoveCommand, ExecCommand } from "../wailsjs/go/main/App";
+import { AddServer, GetServers, RemoveServer, AddCommand, GetCommands, RemoveCommand, SimpleExecCommand } from "../wailsjs/go/main/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, List, Splitter, Divider } from "antd";
 import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined } from "@ant-design/icons";
-import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { FitAddon } from '@xterm/addon-fit';
 
 var term = null;
 
@@ -16,14 +14,12 @@ function App() {
     const [showServerList, setShowServerList] = useState(false);
     const [currentServer, setCurrentServer] = useState({});
     const [showAddCommand, setShowAddCommand] = useState(false);
-    const [showPanel, setShowPanel] = useState(false)
-    const [readyCommand, setReadyCommand] = useState('')
+    const [commandExec, setCommandExec] = useState([]);
 
     const [servers, setServers] = useState([]);
     const [commands, setCommands] = useState([]);
     const [form] = Form.useForm();
     const [form1] = Form.useForm();
-    const fitAddon = new FitAddon();
     const columns = [
         {
             title: '名字',
@@ -140,17 +136,10 @@ function App() {
             })
         }, (errorInfo) => {
             console.log("Failed:", errorInfo);
-        }
-        );
+        });
     }
 
-    function execCommand() {
-        ExecCommand(currentServer, readyCommand).then((result) => {
-            console.log("exec finished")
-        }).catch(e => {
-            console.log(e)
-        })
-    }
+ 
 
     function deleteCommand(record) {
         Modal.confirm({
@@ -183,12 +172,34 @@ function App() {
             okType: 'danger',
             cancelText: '取消',
             onOk() {
+                ExecCommand(record)
             },
             onCancel() {
                 console.log('Cancel');
             },
         })
-        
+    }
+
+    async function ExecCommand(record) {
+        setCommandExec([])
+        let readyCommand = record.data.split('\n')
+        for (var i in readyCommand) {
+            setCommandExec([...commandExec,{
+                command: readyCommand[i].trim(),
+                status : 'running',
+                output : '',
+            }])
+            let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
+            console.log(result, readyCommand[i].trim())
+            setCommandExec(oldData => {
+               oldData[oldData.length - 1].output = result.output
+               oldData[oldData.length - 1].status = result.code == 0 ? 'success' : 'error'
+               return oldData
+            })
+            if (result.code != 0) {
+                return
+            }
+        }
     }
 
     return (
@@ -289,7 +300,6 @@ function App() {
                     initialValues={{ name: '名字1', data: '' }}
                     style={{ marginTop: '30px' }}
                     autoComplete="off"
-
                 >
                     <Form.Item label="名字" name="name" rules={[{ required: true, message: "Please input name!" }]}>
                         <Input />

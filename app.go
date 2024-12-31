@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -205,4 +207,67 @@ func (a *App) ExecCommand(serverID, command string) error {
 	}
 
 	return nil
+}
+
+type SimpleExecCmdResult struct {
+	Code   int    `json:"code"`
+	Output string `json:"output"`
+}
+
+func (a *App) SimpleExecCommand(serverID, command string) SimpleExecCmdResult {
+	writer := bytes.NewBuffer([]byte{})
+	server := &Server{}
+	err := a.boltDB.View(func(tx *bolt.Tx) error {
+		bytes := tx.Bucket([]byte("server")).Get([]byte(serverID))
+		if err := json.Unmarshal(bytes, server); err != nil {
+			return fmt.Errorf("json unmarshal server error:%v", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		writer.WriteString(fmt.Sprintf("get server error: %v", err))
+		return SimpleExecCmdResult{
+			Code:   -1,
+			Output: writer.String(),
+		}
+	}
+
+	config := &ssh.ClientConfig{
+		User:            server.User,
+		Auth:            []ssh.AuthMethod{ssh.Password(server.Password)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	sshClient, err := ssh.Dial("tcp", server.IP+":"+server.Port, config)
+	if err != nil {
+		writer.WriteString(fmt.Sprintf("dial error: %v", err))
+		return SimpleExecCmdResult{
+			Code:   -1,
+			Output: writer.String(),
+		}
+	}
+
+	session, err := sshClient.NewSession()
+	if err != nil {
+		writer.WriteString(fmt.Sprintf("new session error: %v", err))
+		return SimpleExecCmdResult{
+			Code:   -1,
+			Output: writer.String(),
+		}
+	}
+
+	session.Stdout = os.Stdout
+	session.Stderr = writer
+	defer session.Close()
+	if err := session.Run(command); err != nil {
+		writer.WriteString(fmt.Sprintf("run command error: %v, command = %s", err, command))
+		return SimpleExecCmdResult{
+			Code:   -1,
+			Output: writer.String(),
+		}
+	}
+	return SimpleExecCmdResult{
+		Code:   0,
+		Output: writer.String(),
+	}
 }

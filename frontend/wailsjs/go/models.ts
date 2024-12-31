@@ -38,6 +38,20 @@ export namespace main {
 	        this.port = source["port"];
 	    }
 	}
+	export class SimpleExecCmdResult {
+	    code: number;
+	    output: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SimpleExecCmdResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.output = source["output"];
+	    }
+	}
 
 }
 
