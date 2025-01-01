@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -256,16 +255,16 @@ func (a *App) SimpleExecCommand(serverID, command string) SimpleExecCmdResult {
 		}
 	}
 
-	session.Stdout = os.Stdout
-	session.Stderr = writer
 	defer session.Close()
-	if err := session.Run(command); err != nil {
+	output, err := session.CombinedOutput(command)
+	if err != nil {
 		writer.WriteString(fmt.Sprintf("run command error: %v, command = %s", err, command))
 		return SimpleExecCmdResult{
 			Code:   -1,
 			Output: writer.String(),
 		}
 	}
+	writer.Write(output)
 	return SimpleExecCmdResult{
 		Code:   0,
 		Output: writer.String(),

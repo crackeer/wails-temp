@@ -5,7 +5,6 @@ import { EventsOn } from "../wailsjs/runtime/runtime";
 
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, List, Splitter, Divider } from "antd";
 import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined } from "@ant-design/icons";
-import '@xterm/xterm/css/xterm.css';
 
 var term = null;
 
@@ -181,21 +180,21 @@ function App() {
     }
 
     async function ExecCommand(record) {
-        setCommandExec([])
+        let list = []
         let readyCommand = record.data.split('\n')
         for (var i in readyCommand) {
-            setCommandExec([...commandExec,{
-                command: readyCommand[i].trim(),
+            list.push({
+                command: readyCommand[i].trim(), 
                 status : 'running',
                 output : '',
-            }])
+            })
+            setCommandExec(list)
             let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
             console.log(result, readyCommand[i].trim())
-            setCommandExec(oldData => {
-               oldData[oldData.length - 1].output = result.output
-               oldData[oldData.length - 1].status = result.code == 0 ? 'success' : 'error'
-               return oldData
-            })
+            list[list.length - 1].output = result.output
+            list[list.length - 1].status = result.code == 0 ? 'success' : 'error'
+            let newList = [...list]
+            setCommandExec(newList)
             if (result.code != 0) {
                 return
             }
@@ -240,7 +239,13 @@ function App() {
                     />
                 </Col>
                 <Col span={18}>
-                    <div id="terminal" style={{ paddingTop: '10px' }}></div>
+                    {
+                        commandExec.map(item => {
+                            return <Card size="small" title={item.command}>
+                                <Input.TextArea value={item.output} rows={4}></Input.TextArea>
+                            </Card>
+                        })
+                    }
                 </Col>
             </Row>
             <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'70%'}>
