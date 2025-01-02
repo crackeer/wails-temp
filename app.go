@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,14 +22,27 @@ type App struct {
 	boltDB *bolt.DB
 }
 
-// NewApp creates a new App application struct
-func NewApp() *App {
+func getDBPath() string {
+	if userInfo, err := user.Current(); err == nil {
+		return userInfo.HomeDir + "/.config/remote-command/data.db"
+	}
+	return "/tmp/remote-command/temp.db"
+}
 
-	db, err := bolt.Open("my.db", 0600, nil)
+// NewApp creates a new App application struct
+func NewApp() (*App, error) {
+	dbPath := getDBPath()
+	dir, _ := filepath.Split(dbPath)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	db, err := bolt.Open(getDBPath(), 0600, nil)
 	if err != nil {
 		log.Fatal(err)
+		return nil, err
 	}
-	db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte("server"))
 		if err != nil {
 			log.Fatal(err)
@@ -37,9 +53,13 @@ func NewApp() *App {
 		}
 		return nil
 	})
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
 	return &App{
 		boltDB: db,
-	}
+	}, nil
 }
 
 // startup is called when the app starts. The context is saved
