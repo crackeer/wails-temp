@@ -6,7 +6,7 @@ toolchain go1.22.10
 
 require (
 	github.com/boltdb/bolt v1.3.1
-	github.com/wailsapp/wails/v2 v2.9.2
+	github.com/wailsapp/wails/v2 v2.9.1
 	golang.org/x/crypto v0.23.0
 )
 

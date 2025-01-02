@@ -4,7 +4,7 @@ import { AddServer, GetServers, RemoveServer, AddCommand, GetCommands, RemoveCom
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
 import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, List, Splitter, Divider } from "antd";
-import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined } from "@ant-design/icons";
+import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined, LoadingOutlined } from "@ant-design/icons";
 
 var term = null;
 
@@ -14,7 +14,7 @@ function App() {
     const [currentServer, setCurrentServer] = useState({});
     const [showAddCommand, setShowAddCommand] = useState(false);
     const [commandExec, setCommandExec] = useState([]);
-
+    const [runningCommand, setRunningCommand] = useState('');
     const [servers, setServers] = useState([]);
     const [commands, setCommands] = useState([]);
     const [form] = Form.useForm();
@@ -138,7 +138,7 @@ function App() {
         });
     }
 
- 
+
 
     function deleteCommand(record) {
         Modal.confirm({
@@ -161,7 +161,7 @@ function App() {
 
     async function readyExecCommand(record) {
         Modal.confirm({
-            title:'确定执行command：' + record.name + '吗？',
+            title: '确定执行command：' + record.name + '吗？',
             content: <>
                 {record.data.split('\n').map((item, index) => {
                     return <div key={index}>{item}</div>
@@ -182,19 +182,13 @@ function App() {
     async function ExecCommand(record) {
         let list = []
         let readyCommand = record.data.split('\n')
+        setCommandExec(list)
         for (var i in readyCommand) {
-            list.push({
-                command: readyCommand[i].trim(), 
-                status : 'running',
-                output : '',
-            })
-            setCommandExec(list)
+            setRunningCommand(readyCommand[i].trim())
             let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
-            console.log(result, readyCommand[i].trim())
-            list[list.length - 1].output = result.output
-            list[list.length - 1].status = result.code == 0 ? 'success' : 'error'
-            let newList = [...list]
+            let newList = [...list, { name: readyCommand[i].trim(), output: result.output, status: result.code == 0 ? 'success' : 'error' }]
             setCommandExec(newList)
+            setRunningCommand('')
             if (result.code != 0) {
                 return
             }
@@ -203,31 +197,30 @@ function App() {
 
     return (
         <div id="App">
-            <Row gutter={10}>
-                <Divider>
-                    <Space>
-                        <span>
-                            服务器：{currentServer.id == "" ? "未选择" : currentServer.name}
-                        </span>
-                        <Button color="default" type="link" size="small" onClick={showAddServerModal}>添加</Button>
-                        <Button
-                            color="default"
-                            type="link"
-                            size="small"
-                            onClick={showServerListModal}
-                        >列表</Button>
-                    </Space>
-                </Divider>
-
-                <Col span={6} >
+            <Divider>
+                <Space>
+                    <span>
+                        服务器：{currentServer.id == "" ? "未选择" : currentServer.name}
+                    </span>
+                    <Button color="default" type="link" size="small" onClick={showAddServerModal}>添加</Button>
+                    <Button
+                        color="default"
+                        type="link"
+                        size="small"
+                        onClick={showServerListModal}
+                    >列表</Button>
+                </Space>
+            </Divider>
+            <Splitter style={{ height: '100%' }}>
+                <Splitter.Panel defaultSize="30%" min="30%" max="50%" >
+                    <p style={{ margin: '10px' }}>
+                        <span>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>添加</Button>
+                    </p>
                     <List
-                        className="demo-loadmore-list"
                         itemLayout="horizontal"
                         dataSource={commands}
                         bordered={true}
                         size="small"
-                        header={<div>
-                            <span style={{ display: 'inline-block', marginRight: '10px' }}>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>添加</Button></div>}
                         renderItem={(item) => (
                             <List.Item
                                 actions={[<a key="list-loadmore-edit" onClick={deleteCommand.bind(this, item)}>删除</a>, <a key="list-loadmore-more" onClick={readyExecCommand.bind(this, item)}>执行</a>]}
@@ -237,8 +230,11 @@ function App() {
                             </List.Item>
                         )}
                     />
-                </Col>
-                <Col span={18}>
+                </Splitter.Panel>
+                <Splitter.Panel>
+                    {runningCommand.length > 0 ? <Card size="small" title={runningCommand} style={{ marginBottom: '10px' }}>
+                        <LoadingOutlined />
+                    </Card> : null}
                     {
                         commandExec.map(item => {
                             return <Card size="small" title={item.command}>
@@ -246,8 +242,9 @@ function App() {
                             </Card>
                         })
                     }
-                </Col>
-            </Row>
+                </Splitter.Panel>
+            </Splitter>
+
             <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'70%'}>
                 <Table
                     columns={columns}

@@ -1,5 +1,6 @@
+html {
+    background-color: rgba(0, 0, 0, 0)
+}
 #App {
-    height: 100vh;
-    background-color: aliceblue;
     padding: 10px;
 }
