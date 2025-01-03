@@ -186,8 +186,13 @@ function App() {
         for (var i in readyCommand) {
             setRunningCommand(readyCommand[i].trim())
             let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
-            let newList = [...list, { name: readyCommand[i].trim(), output: result.output, status: result.code == 0 ? 'success' : 'error' }]
-            setCommandExec(newList)
+            list.unshift({
+                index: parseInt(i) + 1,
+                command: readyCommand[i].trim(),
+                output: result.output,
+                status: result.code == 0 ? 'success' : 'error'
+            })
+            setCommandExec(list)
             setRunningCommand('')
             if (result.code != 0) {
                 return
@@ -212,7 +217,7 @@ function App() {
                 </Space>
             </Divider>
             <Splitter style={{ height: '100%' }}>
-                <Splitter.Panel defaultSize="30%" min="30%" max="50%" >
+                <Splitter.Panel defaultSize="30%" min="30%" max="50%" style={{ padding: '10px' }}>
                     <p style={{ margin: '10px' }}>
                         <span>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>添加</Button>
                     </p>
@@ -231,13 +236,13 @@ function App() {
                         )}
                     />
                 </Splitter.Panel>
-                <Splitter.Panel>
-                    {runningCommand.length > 0 ? <Card size="small" title={runningCommand} style={{ marginBottom: '10px' }}>
+                <Splitter.Panel style={{ padding: '10px' }}>
+                    {runningCommand.length > 0 ? <Card size="small" title={'正在执行：' + runningCommand} style={{ marginBottom: '10px' }}>
                         <LoadingOutlined />
                     </Card> : null}
                     {
                         commandExec.map(item => {
-                            return <Card size="small" title={item.command}>
+                            return <Card size="small" title={item.index + '. ' + item.command}>
                                 <Input.TextArea value={item.output} rows={4}></Input.TextArea>
                             </Card>
                         })
