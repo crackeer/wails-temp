@@ -3,14 +3,16 @@ import "./App.css";
 import { AddServer, GetServers, RemoveServer, AddCommand, GetCommands, RemoveCommand, SimpleExecCommand } from "../wailsjs/go/main/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
-import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, List, Splitter, Divider } from "antd";
+import { Button, Card, Row, Col, Modal, Form, Input, Radio, Flex, Table, Space, message, List, Splitter, Divider, Checkbox } from "antd";
 import { UnorderedListOutlined, PlusOutlined, ArrowUpOutlined, LoadingOutlined } from "@ant-design/icons";
 
 var term = null;
 
 function App() {
     const [showAddServer, setShowAddServer] = useState(false);
+    const [editFlag, setEditFlag] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
+    const [checkedServers, setCheckedServers] = useState([])
     const [currentServer, setCurrentServer] = useState({});
     const [showAddCommand, setShowAddCommand] = useState(false);
     const [commandExec, setCommandExec] = useState([]);
@@ -49,7 +51,7 @@ function App() {
                 <Space size="middle">
                     <a>复制</a>
                     <a onClick={deleteServer.bind(this, record)}>删除</a>
-                    <a onClick={selectServer.bind(this, record)}>选择</a>
+                    <a onClick={toEditServer.bind(this, record)}>edit</a>
                 </Space>
             ),
         },
@@ -64,18 +66,15 @@ function App() {
     async function getCommands() {
         let result = await GetCommands();
         result.sort((a, b) => b.id - a.id)
-        setCommands(result)
+        setCommands([...result])
     }
     async function getServers() {
         let result = await GetServers();
-        setServers(result)
-        if (result.length > 0 && currentServer.length < 1) {
-            setCurrentServer(result[0].id)
-        }
+        result.sort((a, b) => b.id - a.id)
+        setServers([...result])
     }
 
     async function showServerListModal() {
-        await getServers()
         setShowServerList(true);
     }
 
@@ -103,8 +102,21 @@ function App() {
         setShowServerList(false)
     }
 
+    async function toEditServer(record) {
+        form.setFieldsValue(record)
+        setEditFlag(true)
+        setShowAddServer(true)
+    }
+
 
     function showAddServerModal() {
+        form.setFieldsValue({
+            name: '',
+            port : '22',
+            user: 'root',
+            password: '1234567',
+        })
+        setEditFlag(false)
         setShowAddServer(true);
     }
 
@@ -132,7 +144,7 @@ function App() {
                     message.info("添加成功")
                     setShowAddCommand(false)
                 })
-            })
+            })    
         }, (errorInfo) => {
             console.log("Failed:", errorInfo);
         });
@@ -179,6 +191,10 @@ function App() {
         })
     }
 
+    async function selectServer(params) {
+        setCheckedServers(params)
+    }
+
     async function ExecCommand(record) {
         let list = []
         let readyCommand = record.data.split('\n')
@@ -202,25 +218,28 @@ function App() {
 
     return (
         <div id="App">
-            <Divider>
-                <Space>
-                    <span>
-                        服务器：{currentServer.id == "" ? "未选择" : currentServer.name}
-                    </span>
-                    <Button color="default" type="link" size="small" onClick={showAddServerModal}>添加</Button>
-                    <Button
+            <Card size="small" title={<Space>
+                Server List
+                <Button color="default" type="link" size="small" onClick={showAddServerModal}>add</Button>
+                <Button
                         color="default"
                         type="link"
                         size="small"
                         onClick={showServerListModal}
-                    >列表</Button>
-                </Space>
-            </Divider>
+                    >manage</Button>
+                </Space>} style={{marginBottom: '10px'}}>
+                <Checkbox.Group defaultValue={[]} value={checkedServers} onChange={selectServer}>
+                    {
+                        servers.map(item => {
+                            return <Checkbox value={item.id} key={item.id}>{item.name}({item.ip})</Checkbox>
+                        })}
+                </Checkbox.Group>
+            </Card>
             <Splitter style={{ height: '100%' }}>
-                <Splitter.Panel defaultSize="30%" min="30%" max="50%" style={{ padding: '10px' }}>
-                    <p style={{ margin: '10px' }}>
-                        <span>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>添加</Button>
-                    </p>
+                <Splitter.Panel defaultSize="30%" min="30%" max="50%" style={{ padding: '5px' }}>
+                    <Space style={{marginBottom: '10px'}}>
+                    <span>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>add</Button>
+                    </Space>
                     <List
                         itemLayout="horizontal"
                         dataSource={commands}
@@ -260,10 +279,11 @@ function App() {
                 />
             </Modal>
             <Modal
-                title="添加服务器"
+                title={editFlag ? '编辑服务器' : '添加服务器'}
                 open={showAddServer}
                 onCancel={() => setShowAddServer(false)}
                 onOk={doAddServer}
+                zIndex={9999}
             >
                 <Form
                     name="basic"

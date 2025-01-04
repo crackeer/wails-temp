@@ -117,8 +117,11 @@ func (a *App) GetServers() []Server {
 //
 //	@param server
 func (a *App) AddServer(server Server) {
-	id := fmt.Sprintf("%d", time.Now().Unix())
-	server.ID = id
+	id := server.ID
+	if len(id) < 1 {
+		id = fmt.Sprintf("%d", time.Now().Unix())
+		server.ID = id
+	}
 	data, _ := json.Marshal(server)
 	a.boltDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("server"))
