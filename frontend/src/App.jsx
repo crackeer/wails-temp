@@ -55,8 +55,28 @@ function App() {
                 </Space>
             ),
         },
-
     ];
+    const columns1 = [
+        {
+            title: '名字',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: '操作',
+            dataIndex: 'operation',
+            key: 'operation',
+            render: (_, record) => (
+                <Space size="middle">
+                    <a>复制</a>
+                    <a onClick={deleteCommand.bind(this, record)}>删除</a>
+                    <a onClick={toEditCommand.bind(this, record)}>edit</a>
+                </Space>
+            ),
+        },
+
+    ]
+
 
     useEffect(() => {
         getServers();
@@ -106,6 +126,12 @@ function App() {
         form.setFieldsValue(record)
         setEditFlag(true)
         setShowAddServer(true)
+    }
+
+    async function toEditCommand(params) {
+        form1.setFieldsValue(params)
+        setEditFlag(true)
+        setShowAddCommand(true)
     }
 
 
@@ -238,7 +264,9 @@ function App() {
             <Splitter style={{ height: '100%' }}>
                 <Splitter.Panel defaultSize="30%" min="30%" max="50%" style={{ padding: '5px' }}>
                     <Space style={{marginBottom: '10px'}}>
-                    <span>命令列表</span> <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>add</Button>
+                        <span>命令列表</span>
+                        <Button type="link" size="small" onClick={() => setShowCommandLst(true)}>Manage</Button>
+                        <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>add</Button>
                     </Space>
                     <List
                         itemLayout="horizontal"
@@ -247,7 +275,7 @@ function App() {
                         size="small"
                         renderItem={(item) => (
                             <List.Item
-                                actions={[<a key="list-loadmore-edit" onClick={deleteCommand.bind(this, item)}>删除</a>, <a key="list-loadmore-more" onClick={readyExecCommand.bind(this, item)}>执行</a>]}
+                                actions={[<a key="list-loadmore-more" onClick={readyExecCommand.bind(this, item)}>执行</a>]}
                                 title={item.name}
                             >
                                 {item.name}
@@ -272,14 +300,14 @@ function App() {
             <Modal title="服务器列表" open={showServerList} onCancel={() => setShowServerList(false)} width={'70%'}>
                 <Table
                     columns={columns}
-                    rowKey={(record) => record.ip}
+                    rowKey={(record) => record.id}
                     dataSource={servers}
                     pagination={false}
                     size="small"
                 />
             </Modal>
             <Modal
-                title={editFlag ? '编辑服务器' : '添加服务器'}
+                title={editFlag ? 'Edit server' : 'Add server'}
                 open={showAddServer}
                 onCancel={() => setShowAddServer(false)}
                 onOk={doAddServer}
@@ -312,8 +340,19 @@ function App() {
                 </Form>
             </Modal>
 
+            <Modal title="CommandList" open={showCommandList} onCancel={() => setShowCommandLst(false)} width={'70%'}>
+                <Table
+                    columns={columns}
+                    rowKey={(record) => record.id}
+                    dataSource={commands}
+                    pagination={false}
+                    size="small"
+                />
+            </Modal>
+
+
             <Modal
-                title="添加Command"
+                title={editFlag ? '编辑Command' : '添加Command'}
                 open={showAddCommand}
                 onCancel={() => setShowAddCommand(false)}
                 onOk={doAddCommand}
