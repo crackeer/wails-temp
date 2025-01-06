@@ -49,7 +49,7 @@ function App() {
             key: 'address',
             render: (_, record) => (
                 <Space size="middle">
-                    <a>复制</a>
+                    <a onClick={toCopyServer.bind(this, record)}>复制</a>
                     <a onClick={deleteServer.bind(this, record)}>删除</a>
                     <a onClick={toEditServer.bind(this, record)}>edit</a>
                 </Space>
@@ -68,7 +68,7 @@ function App() {
             key: 'operation',
             render: (_, record) => (
                 <Space size="middle">
-                    <a>复制</a>
+                    <a onClick={toCopyCommand.bind(this, record)}>复制</a>
                     <a onClick={deleteCommand.bind(this, record)}>删除</a>
                     <a onClick={toEditCommand.bind(this, record)}>edit</a>
                 </Space>
@@ -117,14 +117,17 @@ function App() {
         });
     }
 
-    async function selectServer(record) {
-        setCurrentServer(record)
-        setShowServerList(false)
-    }
 
     async function toEditServer(record) {
         form.setFieldsValue(record)
         setEditFlag(true)
+        setShowAddServer(true)
+    }
+    async function toCopyServer(record) {
+        let copyData = lodash.cloneDeep(record)
+        copyData.id = ''
+        form.setFieldsValue(copyData)
+        setEditFlag(false)
         setShowAddServer(true)
     }
 
@@ -134,6 +137,13 @@ function App() {
         setShowAddCommand(true)
     }
 
+    async function toCopyCommand(params) {
+        let copyData = lodash.cloneDeep(params)
+        copyData.id = ''
+        form1.setFieldsValue(copyData)
+        setEditFlag(true)
+        setShowAddCommand(true)
+    }
 
     function showAddServerModal() {
         form.setFieldsValue({
