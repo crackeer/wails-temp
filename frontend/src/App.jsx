@@ -13,7 +13,7 @@ function App() {
     const [editFlag, setEditFlag] = useState(false);
     const [showServerList, setShowServerList] = useState(false);
     const [checkedServers, setCheckedServers] = useState([])
-    const [currentServer, setCurrentServer] = useState({});
+    const [showCommandList, setShowCommandList] = useState(false);
     const [showAddCommand, setShowAddCommand] = useState(false);
     const [commandExec, setCommandExec] = useState([]);
     const [runningCommand, setRunningCommand] = useState('');
@@ -117,7 +117,6 @@ function App() {
         });
     }
 
-
     async function toEditServer(record) {
         form.setFieldsValue(record)
         setEditFlag(true)
@@ -147,6 +146,7 @@ function App() {
 
     function showAddServerModal() {
         form.setFieldsValue({
+            id : '',
             name: '',
             port : '22',
             user: 'root',
@@ -180,13 +180,11 @@ function App() {
                     message.info("添加成功")
                     setShowAddCommand(false)
                 })
-            })    
+            })
         }, (errorInfo) => {
             console.log("Failed:", errorInfo);
         });
     }
-
-
 
     function deleteCommand(record) {
         Modal.confirm({
@@ -210,11 +208,8 @@ function App() {
     async function readyExecCommand(record) {
         Modal.confirm({
             title: '确定执行command：' + record.name + '吗？',
-            content: <>
-                {record.data.split('\n').map((item, index) => {
-                    return <div key={index}>{item}</div>
-                })}
-            </>,
+            content: <Input.TextArea value={record.data} rows={5} readOnly={true} style={{ width: '100%' }} />,
+            width: '50%',
             okText: '确定',
             okType: 'danger',
             cancelText: '取消',
@@ -235,19 +230,27 @@ function App() {
         let list = []
         let readyCommand = record.data.split('\n')
         setCommandExec(list)
-        for (var i in readyCommand) {
-            setRunningCommand(readyCommand[i].trim())
-            let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
-            list.unshift({
-                index: parseInt(i) + 1,
-                command: readyCommand[i].trim(),
-                output: result.output,
-                status: result.code == 0 ? 'success' : 'error'
-            })
-            setCommandExec(list)
-            setRunningCommand('')
-            if (result.code != 0) {
-                return
+        let serversMapping = {}
+        for (var i in servers) {
+            serversMapping[servers[i].id] = servers[i]
+        }
+        for (var j in checkedServers) {
+            let currentServer = serversMapping[checkedServers[j]]
+            for (var i in readyCommand) {
+                setRunningCommand('[' + currentServer.ip + ']' + readyCommand[i].trim())
+                let result = await SimpleExecCommand(currentServer.id, readyCommand[i].trim())
+                setRunningCommand('')
+                list.unshift({
+                    server : currentServer.name + '-' + currentServer.ip,
+                    index: parseInt(i) + 1,
+                    command: readyCommand[i].trim(),
+                    output: result.output,
+                    status: result.code == 0 ? 'success' : 'error'
+                })
+                setCommandExec(list)
+                if (result.code != 0) {
+                    return
+                }
             }
         }
     }
@@ -255,14 +258,14 @@ function App() {
     return (
         <div id="App">
             <Card size="small" title={<Space>
-                Server List
-                <Button color="default" type="link" size="small" onClick={showAddServerModal}>add</Button>
+                服务器列表
+                <Button color="default" type="link" size="small" onClick={showAddServerModal}>添加</Button>
                 <Button
                         color="default"
                         type="link"
                         size="small"
                         onClick={showServerListModal}
-                    >manage</Button>
+                    >管理</Button>
                 </Space>} style={{marginBottom: '10px'}}>
                 <Checkbox.Group defaultValue={[]} value={checkedServers} onChange={selectServer}>
                     {
@@ -273,25 +276,26 @@ function App() {
             </Card>
             <Splitter style={{ height: '100%' }}>
                 <Splitter.Panel defaultSize="30%" min="30%" max="50%" style={{ padding: '5px' }}>
-                    <Space style={{marginBottom: '10px'}}>
+                    <Card size="small" title={<Space>
                         <span>命令列表</span>
-                        <Button type="link" size="small" onClick={() => setShowCommandLst(true)}>Manage</Button>
-                        <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>add</Button>
-                    </Space>
-                    <List
-                        itemLayout="horizontal"
-                        dataSource={commands}
-                        bordered={true}
-                        size="small"
-                        renderItem={(item) => (
-                            <List.Item
-                                actions={[<a key="list-loadmore-more" onClick={readyExecCommand.bind(this, item)}>执行</a>]}
-                                title={item.name}
-                            >
-                                {item.name}
-                            </List.Item>
-                        )}
-                    />
+                        <Button type="link" size="small" onClick={() => setShowAddCommand(true)}>添加</Button>
+                        <Button type="link" size="small" onClick={() => setShowCommandLst(true)}>管理</Button>
+                    </Space>}>
+                        <List
+                            itemLayout="horizontal"
+                            dataSource={commands}
+                            bordered={true}
+                            size="small"
+                            renderItem={(item) => (
+                                <List.Item
+                                    actions={[<a key="list-loadmore-more" onClick={readyExecCommand.bind(this, item)}>执行</a>]}
+                                    title={item.name}
+                                >
+                                    {item.name}
+                                </List.Item>
+                            )}
+                        />
+                    </Card>
                 </Splitter.Panel>
                 <Splitter.Panel style={{ padding: '10px' }}>
                     {runningCommand.length > 0 ? <Card size="small" title={'正在执行：' + runningCommand} style={{ marginBottom: '10px' }}>
@@ -299,7 +303,7 @@ function App() {
                     </Card> : null}
                     {
                         commandExec.map(item => {
-                            return <Card size="small" title={item.index + '. ' + item.command}>
+                            return <Card size="small" title={'[' + item.server + '] ' + item.index + '. ' + item.command}>
                                 <Input.TextArea value={item.output} rows={4}></Input.TextArea>
                             </Card>
                         })
